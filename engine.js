@@ -1,212 +1,373 @@
-// --- 1. SETUP THREE.JS ENGINE SCENE ---
-const viewport = document.getElementById('viewport');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x202020);
-
-const camera = new THREE.PerspectiveCamera(60, viewport.clientWidth / viewport.clientHeight, 0.1, 1000);
-camera.position.set(0, 5, 10);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-viewport.appendChild(renderer.domElement);
-
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-
-// Lighting (Sunlight + Ambient baseplate light)
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-scene.add(ambientLight);
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(10, 20, 15);
-scene.add(dirLight);
-
-// The Roblox Baseplate
-const gridHelper = new THREE.GridHelper(40, 40, 0x444444, 0x222222);
-gridHelper.position.y = -0.01;
-scene.add(gridHelper);
-
-const baseplateGeo = new THREE.BoxGeometry(40, 0.2, 40);
-const baseplateMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.8 });
-const baseplate = new THREE.Mesh(baseplateGeo, baseplateMat);
-baseplate.position.y = -0.1;
-baseplate.name = "Baseplate";
-baseplate.isPart = true; 
-scene.add(baseplate);
-
-// --- 2. ENGINE STATE VARIABLES ---
-let workspaceObjects = [baseplate];
+// --- 1. ENGINE ENGINE CONFIG AND ARCHITECTURE LAYOUT STATE ---
+let scene, camera, renderer, orbitControls, transformControls;
 let selectedObject = null;
-let isRunning = false;
-let partCounter = 0;
-let userScriptCompiled = null;
-let scriptScopeContext = { timer: 0 }; 
+let currentToolMode = 'select'; // select, move, rotate, scale
+let isPlaytesting = false;
 
-// Custom selection visual outline
-const selectionBox = new THREE.BoxHelper(null, 0x00ff00);
-scene.add(selectionBox);
-selectionBox.visible = false;
+// Roblox Studio Directory Data Structure Mock Engine Configuration Tree
+let engineGameData = {
+    Game: [],
+    StarterPlayer: [],
+    StarterCharacter: [],
+    GUI: [],
+    StarterInventory: [],
+    Storage: [],
+    ReplicatedStorage: [],
+    ReplicatedFirst: [],
+    Sound: [],
+    Players: []
+};
 
-// --- 3. EDITOR CORE FUNCTIONS ---
-function updateExplorer() {
-    const list = document.getElementById('explorer-list');
-    list.innerHTML = '';
+// --- 2. THE LAUNCH HUB CONTROLLER ---
+function launchEngine(templateType) {
+    document.getElementById('hub-screen').style.display = 'none';
+    document.getElementById('studio-screen').style.display = 'flex';
     
-    workspaceObjects.forEach(obj => {
-        const item = document.createElement('div');
-        item.className = 'tree-item';
-        if (selectedObject === obj) item.classList.add('selected');
-        item.innerText = `📦 ${obj.name}`;
-        
-        item.onclick = () => selectObject(obj);
-        list.appendChild(item);
+    initEngineCore();
+    loadTemplate(templateType);
+    buildExplorerTree();
+}
+
+function exitToHub() {
+    document.getElementById('studio-screen').style.display = 'none';
+    document.getElementById('hub-screen').style.display = 'flex';
+    if(renderer) {
+        renderer.dispose();
+        viewport.innerHTML = '';
+    }
+}
+
+// --- 3. INITIALIZE INTERACTIVE THREEJS RUNTIME SYSTEM ---
+function initEngineCore() {
+    const viewport = document.getElementById('viewport');
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1e1e1e);
+
+    camera = new THREE.PerspectiveCamera(60, viewport.clientWidth / viewport.clientHeight, 0.1, 1000);
+    camera.position.set(15, 12, 20);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+    viewport.appendChild(renderer.domElement);
+
+    // Camera Navigation Rules Controls
+    orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.05;
+
+    // Advanced Transform Interaction Hooks Gizmos (Move/Rotate/Scale arrows)
+    transformControls = new THREE.TransformControls(camera, renderer.domElement);
+    scene.add(transformControls);
+
+    // Prevent camera flight rotation conflicts when clicking gizmo arrows
+    transformControls.addEventListener('dragging-changed', function (event) {
+        orbitControls.enabled = !event.value;
     });
+
+    // Update dynamic viewport properties input when manually transformed
+    transformControls.addEventListener('objectChange', function () {
+        if (selectedObject) loadProperties(selectedObject);
+    });
+
+    // Lighting Systems
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    sunLight.position.set(20, 40, 20);
+    scene.add(sunLight);
+
+    setupToolbarActions();
+    animateEngineLoop();
+}
+
+// --- 4. MAP AND DATA SYSTEM TEMPLATE ENGINE LOADING ---
+function loadTemplate(type) {
+    // Clean old engine states
+    for (let directory in engineGameData) engineGameData[directory] = [];
+
+    if (type === 'blank') {
+        // Baseplate large floor square
+        const geo = new THREE.BoxGeometry(50, 0.5, 50);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x2e3033, roughness: 0.9 });
+        const baseplate = new THREE.Mesh(geo, mat);
+        baseplate.name = "Baseplate";
+        baseplate.customProperties = { transparency: 0, anchored: true, scriptText: "" };
+        
+        scene.add(baseplate);
+        engineGameData.Game.push(baseplate);
+    } else if (type === 'village') {
+        // Large floor grass field square
+        const floorGeo = new THREE.BoxGeometry(60, 0.5, 60);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x345e37 });
+        const villageFloor = new THREE.Mesh(floorGeo, floorMat);
+        villageFloor.name = "GrassField";
+        villageFloor.customProperties = { transparency: 0, anchored: true, scriptText: "" };
+        scene.add(villageFloor);
+        engineGameData.Game.push(villageFloor);
+
+        // Generate mock setup preset houses structures inside scene loop
+        for(let i = 0; i < 3; i++) {
+            const houseGroup = new THREE.Group();
+            houseGroup.name = `VillageHouse_${i+1}`;
+            
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 4), new THREE.MeshStandardMaterial({color: 0xbdc3c7}));
+            wall.position.y = 1.5;
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(3.5, 2, 4), new THREE.MeshStandardMaterial({color: 0xc0392b}));
+            roof.position.y = 4;
+            roof.rotation.y = Math.PI / 4;
+
+            houseGroup.add(wall, roof);
+            houseGroup.position.set(-10 + (i * 10), 0, (Math.random() - 0.5) * 10);
+            houseGroup.customProperties = { transparency: 0, anchored: true, scriptText: "" };
+
+            scene.add(houseGroup);
+            engineGameData.Game.push(houseGroup);
+        }
+    }
+}
+
+// --- 5. RENDER THE EXPLORER ROBLOX HIERARCHY TREE VIEW ---
+function buildExplorerTree() {
+    const treeContainer = document.getElementById('explorer-tree');
+    treeContainer.innerHTML = '';
+
+    for (let folderName in engineGameData) {
+        const folderDiv = document.createElement('div');
+        folderDiv.className = 'folder-node';
+        folderDiv.innerText = `📂 ${folderName}`;
+        treeContainer.appendChild(folderDiv);
+
+        const childListContainer = document.createElement('div');
+        childListContainer.className = 'child-list';
+
+        engineGameData[folderName].forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'tree-item';
+            if (selectedObject === item) itemDiv.classList.add('selected');
+            
+            // Differentiate icons depending on asset configuration type
+            let icon = "📦 ";
+            if(item.isScript) icon = "📜 ";
+            if(item.isGUI) icon = "🖼️ ";
+            
+            itemDiv.innerText = `${icon}${item.name}`;
+            itemDiv.onclick = (e) => {
+                e.stopPropagation();
+                selectObject(item);
+            };
+            childListContainer.appendChild(itemDiv);
+        });
+
+        treeContainer.appendChild(childListContainer);
+    }
 }
 
 function selectObject(obj) {
     selectedObject = obj;
-    updateExplorer();
-    
-    if (obj) {
-        selectionBox.setFromObject(obj);
-        selectionBox.visible = true;
-        loadProperties(obj);
-    } else {
-        selectionBox.visible = false;
-        document.getElementById('properties-panel').innerHTML = '<p class="placeholder-text">Select an object to edit properties</p>';
-    }
-}
+    buildExplorerTree();
 
-function loadProperties(obj) {
-    const panel = document.getElementById('properties-panel');
-    panel.innerHTML = `
-        <div class="property-row">
-            <label>Name</label>
-            <input type="text" id="prop-name" value="${obj.name}">
-        </div>
-        <div class="property-row">
-            <label>Color</label>
-            <input type="color" id="prop-color" value="#${obj.material.color.getHexString()}">
-        </div>
-        <div class="property-row">
-            <label>Position Y</label>
-            <input type="number" step="0.5" id="prop-pos-y" value="${obj.position.y}">
-        </div>
-    `;
-
-    // Hook properties up to live UI inputs
-    document.getElementById('prop-name').oninput = (e) => {
-        obj.name = e.target.value;
-        updateExplorer();
-    };
-    document.getElementById('prop-color').oninput = (e) => {
-        obj.material.color.set(e.target.value);
-    };
-    document.getElementById('prop-pos-y').oninput = (e) => {
-        obj.position.y = parseFloat(e.target.value) || 0;
-        if(selectionBox.visible) selectionBox.setFromObject(obj);
-    };
-}
-
-// Spawning Engine Logic
-document.getElementById('btn-spawn-part').onclick = () => {
-    partCounter++;
-    const geo = new THREE.BoxGeometry(1, 1, 1);
-    const mat = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set((Math.random() - 0.5) * 5, 0.5, (Math.random() - 0.5) * 5);
-    mesh.name = `Part_${partCounter}`;
-    mesh.isPart = true;
-
-    scene.add(mesh);
-    workspaceObjects.push(mesh);
-    selectObject(mesh);
-};
-
-document.getElementById('btn-spawn-rig').onclick = () => {
-    partCounter++;
-    // Simple Roblox character model composition group
-    const group = new THREE.Group();
-    group.name = `DummyRig_${partCounter}`;
-    
-    const mat = new THREE.MeshStandardMaterial({ color: 0x00a2ff });
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), mat);
-    head.position.y = 1.4;
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.5), mat);
-    torso.position.y = 0.5;
-    
-    group.add(head, torso);
-    group.position.set((Math.random() - 0.5) * 4, 0.5, (Math.random() - 0.5) * 4);
-    
-    // Wire properties patch up so group doesn't break color setter logic
-    group.material = { color: { set: (c) => mat.color.set(c), getHexString: () => mat.color.getHexString() } };
-
-    scene.add(group);
-    workspaceObjects.push(group);
-    selectObject(group);
-};
-
-// --- 4. THE ROBLOX INSPIRED SCRIPT EXECUTION SYSTEM ---
-const runBtn = document.getElementById('btn-run');
-const stopBtn = document.getElementById('btn-stop');
-
-runBtn.onclick = () => {
-    if (!selectedObject) {
-        alert("Please select a Part/Model in the Explorer to bind your script to execution before running!");
-        return;
-    }
-    const scriptText = document.getElementById('script-input').value;
-    try {
-        // Compile raw user string text to real operational Javascript closure function
-        userScriptCompiled = new Function('script', scriptText);
-        
-        // Reset execution environment states
-        scriptScopeContext = { Parent: selectedObject, timer: 0 };
-        isRunning = true;
-        
-        runBtn.disabled = true;
-        stopBtn.disabled = false;
-    } catch (err) {
-        alert("Script Compile Error: " + err.message);
-    }
-};
-
-stopBtn.onclick = () => {
-    isRunning = false;
-    runBtn.disabled = false;
-    stopBtn.disabled = true;
-};
-
-// --- 5. CORE RENDER AND INTERACTION ENGINE LOOP ---
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-
-    // If game simulation runtime active, cycle compiled user logic
-    if (isRunning && userScriptCompiled) {
-        try {
-            userScriptCompiled(scriptScopeContext);
-            // Dynamic check updating selection widget box shifts during scripts
-            if (selectedObject && selectionBox.visible) {
-                selectionBox.setFromObject(selectedObject);
-            }
-        } catch (scriptErr) {
-            console.error("Runtime Script Crash:", scriptErr);
-            isRunning = false;
-            runBtn.disabled = false;
-            stopBtn.disabled = true;
+    if (!obj || obj.isScript || obj.isGUI) {
+        transformControls.detach();
+        if(!obj) {
+            document.getElementById('properties-panel').innerHTML = '<p class="placeholder-text">Select an item inside Explorer to read attributes</p>';
+            return;
         }
     }
 
-    renderer.render(scene, camera);
+    // Attach transformation tool controls handle unless asset type non-spatial
+    if(obj && !obj.isScript && !obj.isGUI && currentToolMode !== 'select') {
+        transformControls.attach(obj);
+    } else {
+        transformControls.detach();
+    }
+
+    loadProperties(obj);
 }
 
-// Initialize View Engine UI layout states
-updateExplorer();
-animate();
+// --- 6. PROPERTIES WINDOW CONTROLLER ---
+function loadProperties(obj) {
+    const panel = document.getElementById('properties-panel');
+    const isAnchored = obj.customProperties?.anchored ? "True" : "False";
+    
+    // Safety handling parameters checks for structural scale logic variations
+    let sizeX = obj.scale?.x ?? 1;
+    let sizeY = obj.scale?.y ?? 1;
+    let sizeZ = obj.scale?.z ?? 1;
+    if(obj.geometry?.parameters) {
+        sizeX = obj.geometry.parameters.width || sizeX;
+    }
 
-// Adjust structural responsive layout resizing hooks
-window.addEventListener('resize', () => {
-    camera.aspect = viewport.clientWidth / viewport.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-});
+    panel.innerHTML = `
+        <div class="property-row"><label>Name</label><input type="text" id="p-name" value="${obj.name}"></div>
+        <div class="property-row"><label>Position X</label><input type="number" step="0.5" id="p-posx" value="${obj.position.x || 0}"></div>
+        <div class="property-row"><label>Position Y</label><input type="number" step="0.5" id="p-posy" value="${obj.position.y || 0}"></div>
+        <div class="property-row"><label>Position Z</label><input type="number" step="0.5" id="p-posz" value="${obj.position.z || 0}"></div>
+        <div class="property-row"><label>Size X</label><input type="number" step="0.5" id="p-sizex" value="${sizeX}"></div>
+        <div class="property-row"><label>Transparency</label><input type="number" min="0" max="1" step="0.1" id="p-trans" value="${obj.customProperties?.transparency || 0}"></div>
+    `;
+
+    // Real-time Event Data Binding Pipes Hookups
+    document.getElementById('p-name').oninput = (e) => { obj.name = e.target.value; buildExplorerTree(); };
+    document.getElementById('p-posx').oninput = (e) => { obj.position.x = parseFloat(e.target.value) || 0; };
+    document.getElementById('p-posy').oninput = (e) => { obj.position.y = parseFloat(e.target.value) || 0; };
+    document.getElementById('p-posz').oninput = (e) => { obj.position.z = parseFloat(e.target.value) || 0; };
+    document.getElementById('p-sizex').oninput = (e) => {
+        let val = parseFloat(e.target.value) || 1;
+        obj.scale.set(val, val, val); // Scaler logic transformation pipeline
+    };
+    document.getElementById('p-trans').oninput = (e) => {
+        let val = parseFloat(e.target.value) || 0;
+        obj.customProperties.transparency = val;
+        if(obj.material) {
+            obj.material.transparent = val > 0;
+            obj.material.opacity = 1 - val;
+        }
+    };
+
+    // Update layout states Anchor tracking flag status toggle indicator display text
+    const anchorBtn = document.getElementById('btn-anchor');
+    if (obj.customProperties?.anchored) {
+        anchorBtn.innerText = "⚓ Anchor: ON";
+        anchorBtn.classList.add('active-tool');
+    } else {
+        anchorBtn.innerText = "⚓ Anchor: OFF";
+        anchorBtn.classList.remove('active-tool');
+    }
+}
+
+// --- 7. TOOLBAR ACTIONS CONTROLLERS INTERACTIVE ROUTINES ---
+function setupToolbarActions() {
+    // Move, Rotate, Scale transformations switches
+    const tools = {
+        'tool-select': 'select',
+        'tool-move': 'translate',
+        'tool-rotate': 'rotate',
+        'tool-scale': 'scale'
+    };
+
+    Object.keys(tools).forEach(id => {
+        document.getElementById(id).onclick = (e) => {
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active-tool'));
+            e.target.classList.add('active-tool');
+            currentToolMode = tools[id];
+            
+            if (currentToolMode === 'select' || !selectedObject) {
+                transformControls.detach();
+            } else {
+                transformControls.setMode(currentToolMode);
+                transformControls.attach(selectedObject);
+            }
+        };
+    });
+
+    // Anchor Toggle Action logic
+    document.getElementById('btn-anchor').onclick = () => {
+        if (!selectedObject) return;
+        if (!selectedObject.customProperties) selectedObject.customProperties = {};
+        selectedObject.customProperties.anchored = !selectedObject.customProperties.anchored;
+        loadProperties(selectedObject);
+    };
+
+    // Creation Inserters pipelines mapping bindings
+    document.getElementById('btn-insert-part').onclick = () => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(2,2,2), new THREE.MeshStandardMaterial({color: 0x3498db}));
+        mesh.position.set(0, 1.2, 0);
+        mesh.name = `Part_${engineGameData.Game.length + 1}`;
+        mesh.customProperties = { transparency: 0, anchored: false, scriptText: "" };
+        scene.add(mesh);
+        engineGameData.Game.push(mesh);
+        selectObject(mesh);
+    };
+
+    document.getElementById('btn-insert-script').onclick = () => {
+        const mockScriptNode = { name: `Script_${engineGameData.Game.length+1}`, isScript: true, customProperties: { scriptText: "console.log('Running Script!');" } };
+        engineGameData.Game.push(mockScriptNode);
+        selectObject(mockScriptNode);
+    };
+
+    document.getElementById('btn-insert-gui').onclick = () => {
+        const mockGUINode = { name: `ScreenGui_${engineGameData.GUI.length+1}`, isGUI: true, text: "Hello World UI" };
+        engineGameData.GUI.push(mockGUINode);
+        selectObject(mockGUINode);
+    };
+
+    document.getElementById('btn-insert-rig').onclick = () => {
+        const rig = new THREE.Group();
+        rig.name = "CharacterDummy";
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 0.6), new THREE.MeshStandardMaterial({color: 0xd35400}));
+        torso.position.y = 1;
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({color: 0xf1c40f}));
+        head.position.y = 2.4;
+        rig.add(torso, head);
+        rig.customProperties = { transparency: 0, anchored: false, scriptText: "" };
+        scene.add(rig);
+        engineGameData.Game.push(rig);
+        selectObject(rig);
+    };
+
+    // Playtest Runtime System Simulation Simulation
+    document.getElementById('btn-playtest').onclick = (e) => {
+        isPlaytesting = !isPlaytesting;
+        if(isPlaytesting) {
+            e.target.innerText = "⏹️ Stop Playtest";
+            e.target.classList.replace('success', 'btn-danger');
+            // Trigger UI layer engine renders mapping elements
+            const guiArea = document.getElementById('starter-gui-container');
+            guiArea.innerHTML = '';
+            engineGameData.GUI.forEach(ui => {
+                const label = document.createElement('div');
+                label.style.cssText = "position:absolute; top:20px; left:20px; background:rgba(0,0,0,0.7); padding:10px; color:#fff; pointer-events:auto; border-radius:4px;";
+                label.innerText = ui.text || ui.name;
+                guiArea.appendChild(label);
+            });
+        } else {
+            e.target.innerText = "▶️ Playtest";
+            e.target.classList.replace('btn-danger', 'success');
+            document.getElementById('starter-gui-container').innerHTML = '';
+        }
+    };
+
+    // --- 8. FILE COMPILATION COMPUTER SAVER EXPORTER PIPE ---
+    document.getElementById('btn-save').onclick = () => {
+        let exportData = {};
+        for (let key in engineGameData) {
+            exportData[key] = engineGameData[key].map(obj => ({
+                name: obj.name,
+                isScript: obj.isScript || false,
+                isGUI: obj.isGUI || false,
+                position: obj.position ? {x: obj.position.x, y: obj.position.y, z: obj.position.z} : null,
+                scale: obj.scale ? {x: obj.scale.x, y: obj.scale.y, z: obj.scale.z} : null,
+                customProperties: obj.customProperties || {}
+            }));
+        }
+
+        // Generate JSON structural format blob payload downloading routine
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: "application/json"});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${exportData.Game[0]?.name || "MyWebGame"}.json`;
+        link.click();
+    };
+}
+
+// --- 9. PRINCIPAL ANIMATION SCHEDULER ENGINE TICK ---
+function animateEngineLoop() {
+    requestAnimationFrame(animateEngineLoop);
+    
+    if(orbitControls) orbitControls.update();
+
+    // Physics Engine mock fall iteration loops inside playtest
+    if (isPlaytesting) {
+        engineGameData.Game.forEach(obj => {
+            if (obj.position && obj.customProperties && !obj.customProperties.anchored) {
+                if (obj.position.y > 1) {
+                    obj.position.y -= 0.08; // Simulate gravity physics dropping down onto floor
+                }
+            }
+        });
+    }
+
+    if(renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
+}
