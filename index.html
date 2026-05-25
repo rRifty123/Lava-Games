@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Studio Engine V2</title>
+    <title>Lava Games STUDIO</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -13,7 +13,7 @@
 
     <div id="hub-screen">
         <div class="hub-header">
-            <h1>My Web Engine Developer Hub</h1>
+            <h1>🌋 Lava Games STUDIO</h1>
             <p>Select a template or load a saved project to begin building</p>
         </div>
         <div class="templates-section">
@@ -52,6 +52,7 @@
                 <button class="tool-btn" id="btn-insert-part">➕ Insert Part</button>
                 <button class="tool-btn" id="btn-insert-script">📜 Insert Script</button>
                 <button class="tool-btn" id="btn-insert-rig">🧍 Insert Rig</button>
+                <button class="tool-btn" id="btn-insert-player">🎮 Add Player</button>
                 <button class="tool-btn" id="btn-insert-gui">🖼️ Insert GUI</button>
                 <button class="tool-btn" id="btn-anchor">⚓ Anchor: OFF</button>
             </div>
@@ -59,6 +60,7 @@
             <div class="toolbar-group">
                 <button class="tool-btn success" id="btn-playtest">▶️ Playtest</button>
             </div>
+            <div class="wasd-indicator">🎮 Use WASD keys to fly camera around workspace</div>
         </div>
 
         <div id="main-container">
@@ -69,15 +71,39 @@
 
             <div id="right-sidebar">
                 <div class="sidebar-section half-height">
-                    <h3>Explorer Hierarchy</h3>
+                    <h3>Explorer Hierarchy (Double click to Open / Rename)</h3>
                     <div id="explorer-tree" class="tree-view"></div>
                 </div>
                 <div class="sidebar-section half-height">
                     <h3>Properties Window</h3>
                     <div id="properties-panel">
-                        <p class="placeholder-text">Select a workspace asset inside the explorer hierarchy view to tweak attributes</p>
+                        <p class="placeholder-text">Select an item inside Explorer to read attributes</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-container" style="display: none;">
+        <div class="modal-box" id="script-modal" style="display: none;">
+            <div class="modal-header">
+                <h2 id="script-title">Script Editor (JavaScript)</h2>
+                <button onclick="closeModal()">✕</button>
+            </div>
+            <textarea id="modal-code-input" spellcheck="false"></textarea>
+            <button class="tool-btn success" onclick="saveScriptContent()" style="margin-top:10px;">💾 Apply Changes</button>
+        </div>
+
+        <div class="modal-box" id="gui-modal" style="display: none;">
+            <div class="modal-header">
+                <h2>Configure Screen GUI</h2>
+                <button onclick="closeModal()">✕</button>
+            </div>
+            <p style="font-size: 13px; color: #aaa; margin-bottom: 12px;">Choose a component type to construct inside this Canvas layer instance:</p>
+            <div class="gui-options-grid">
+                <button onclick="setGUIType('Text')">📝 Text Label</button>
+                <button onclick="setGUIType('Image')">🖼️ Image Frame</button>
+                <button onclick="setGUIType('Button')">🔘 Push Button</button>
             </div>
         </div>
     </div>
