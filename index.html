@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Studio Engine</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="editor-container">
+        <div id="sidebar">
+            <div class="panel-section">
+                <h3>Toolbar</h3>
+                <div class="btn-group">
+                    <button id="btn-spawn-part">Spawn Part</button>
+                    <button id="btn-spawn-rig">Spawn Rig</button>
+                </div>
+                <div class="btn-group" style="margin-top: 5px;">
+                    <button id="btn-run" class="btn-success">▶ Run Game</button>
+                    <button id="btn-stop" class="btn-danger" disabled>■ Stop</button>
+                </div>
+            </div>
+
+            <div class="panel-section flex-grow">
+                <h3>Explorer</h3>
+                <div id="explorer-list" class="tree-view"></div>
+            </div>
+
+            <div class="panel-section flex-grow">
+                <h3>Properties</h3>
+                <div id="properties-panel">
+                    <p class="placeholder-text">Select an object to edit properties</p>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Script Editor (JavaScript)</h3>
+                <textarea id="script-input" spellcheck="false">// script.Parent references your selected part!
+if (!script.timer) script.timer = 0;
+script.timer += 0.05;
+
+// Make it float up and down and rotate
+script.Parent.position.y = 1 + Math.sin(script.timer) * 0.5;
+script.Parent.rotation.y += 0.02;
+script.Parent.rotation.x += 0.01;
+</textarea>
+            </div>
+        </div>
+
+        <div id="viewport"></div>
+    </div>
+
+    <script src="engine.js"></script>
+</body>
+</html>
