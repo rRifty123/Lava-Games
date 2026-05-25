@@ -1,4 +1,4 @@
-// --- 1. ENGINE ENGINE CONFIG AND ARCHITECTURE LAYOUT STATE ---
+// --- 1. ENGINE RUNTIME STATE CONFIGURATION ---
 let scene, camera, renderer, orbitControls, transformControls;
 let selectedObject = null;
 let currentToolMode = 'select'; // select, move, rotate, scale
@@ -33,7 +33,7 @@ function exitToHub() {
     document.getElementById('hub-screen').style.display = 'flex';
     if(renderer) {
         renderer.dispose();
-        viewport.innerHTML = '';
+        document.getElementById('viewport').innerHTML = '';
     }
 }
 
@@ -50,7 +50,7 @@ function initEngineCore() {
     renderer.setSize(viewport.clientWidth, viewport.clientHeight);
     viewport.appendChild(renderer.domElement);
 
-    // Camera Navigation Rules Controls
+    // Camera Navigation Controls
     orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
     orbitControls.dampingFactor = 0.05;
@@ -76,6 +76,41 @@ function initEngineCore() {
     sunLight.position.set(20, 40, 20);
     scene.add(sunLight);
 
+    // --- MOUSE 3D CLICK CLICK RAYCASTER INTERACTION SELECTION LINK ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    renderer.domElement.addEventListener('pointerdown', (event) => {
+        // Calculate mouse position in normalized device bounds coordinates (-1 to +1)
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+
+        // Scan items stored specifically inside the Workspace structure array map
+        const intersects = raycaster.intersectObjects(engineGameData.Game, true);
+
+        if (intersects.length > 0) {
+            let hitObject = intersects[0].object;
+            
+            // Traverse up tree if parts belong to custom assemblies (Rigs / Compound models)
+            while (hitObject.parent && hitObject.parent !== scene && hitObject.parent.name !== "") {
+                if (hitObject.parent.name.includes("VillageHouse") || hitObject.parent.name.includes("CharacterDummy")) {
+                    hitObject = hitObject.parent;
+                    break;
+                }
+                hitObject = hitObject.parent;
+            }
+            selectObject(hitObject);
+        } else {
+            // Clicked empty void layout space - but verify they didn't just click an active gizmo handle arm
+            if(!transformControls.dragging) {
+                selectObject(null);
+            }
+        }
+    });
+
     setupToolbarActions();
     animateEngineLoop();
 }
@@ -86,7 +121,6 @@ function loadTemplate(type) {
     for (let directory in engineGameData) engineGameData[directory] = [];
 
     if (type === 'blank') {
-        // Baseplate large floor square
         const geo = new THREE.BoxGeometry(50, 0.5, 50);
         const mat = new THREE.MeshStandardMaterial({ color: 0x2e3033, roughness: 0.9 });
         const baseplate = new THREE.Mesh(geo, mat);
@@ -96,7 +130,6 @@ function loadTemplate(type) {
         scene.add(baseplate);
         engineGameData.Game.push(baseplate);
     } else if (type === 'village') {
-        // Large floor grass field square
         const floorGeo = new THREE.BoxGeometry(60, 0.5, 60);
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x345e37 });
         const villageFloor = new THREE.Mesh(floorGeo, floorMat);
@@ -105,7 +138,7 @@ function loadTemplate(type) {
         scene.add(villageFloor);
         engineGameData.Game.push(villageFloor);
 
-        // Generate mock setup preset houses structures inside scene loop
+        // Generate preset house models structures inside loop layout bounds
         for(let i = 0; i < 3; i++) {
             const houseGroup = new THREE.Group();
             houseGroup.name = `VillageHouse_${i+1}`;
@@ -145,7 +178,6 @@ function buildExplorerTree() {
             itemDiv.className = 'tree-item';
             if (selectedObject === item) itemDiv.classList.add('selected');
             
-            // Differentiate icons depending on asset configuration type
             let icon = "📦 ";
             if(item.isScript) icon = "📜 ";
             if(item.isGUI) icon = "🖼️ ";
@@ -176,6 +208,7 @@ function selectObject(obj) {
 
     // Attach transformation tool controls handle unless asset type non-spatial
     if(obj && !obj.isScript && !obj.isGUI && currentToolMode !== 'select') {
+        transformControls.setMode(currentToolMode);
         transformControls.attach(obj);
     } else {
         transformControls.detach();
@@ -187,33 +220,28 @@ function selectObject(obj) {
 // --- 6. PROPERTIES WINDOW CONTROLLER ---
 function loadProperties(obj) {
     const panel = document.getElementById('properties-panel');
-    const isAnchored = obj.customProperties?.anchored ? "True" : "False";
     
-    // Safety handling parameters checks for structural scale logic variations
     let sizeX = obj.scale?.x ?? 1;
     let sizeY = obj.scale?.y ?? 1;
     let sizeZ = obj.scale?.z ?? 1;
-    if(obj.geometry?.parameters) {
-        sizeX = obj.geometry.parameters.width || sizeX;
-    }
 
     panel.innerHTML = `
         <div class="property-row"><label>Name</label><input type="text" id="p-name" value="${obj.name}"></div>
         <div class="property-row"><label>Position X</label><input type="number" step="0.5" id="p-posx" value="${obj.position.x || 0}"></div>
         <div class="property-row"><label>Position Y</label><input type="number" step="0.5" id="p-posy" value="${obj.position.y || 0}"></div>
         <div class="property-row"><label>Position Z</label><input type="number" step="0.5" id="p-posz" value="${obj.position.z || 0}"></div>
-        <div class="property-row"><label>Size X</label><input type="number" step="0.5" id="p-sizex" value="${sizeX}"></div>
+        <div class="property-row"><label>Size Multiplier</label><input type="number" step="0.5" id="p-sizex" value="${sizeX}"></div>
         <div class="property-row"><label>Transparency</label><input type="number" min="0" max="1" step="0.1" id="p-trans" value="${obj.customProperties?.transparency || 0}"></div>
     `;
 
-    // Real-time Event Data Binding Pipes Hookups
+    // Real-time UI input listener mapping
     document.getElementById('p-name').oninput = (e) => { obj.name = e.target.value; buildExplorerTree(); };
     document.getElementById('p-posx').oninput = (e) => { obj.position.x = parseFloat(e.target.value) || 0; };
     document.getElementById('p-posy').oninput = (e) => { obj.position.y = parseFloat(e.target.value) || 0; };
     document.getElementById('p-posz').oninput = (e) => { obj.position.z = parseFloat(e.target.value) || 0; };
     document.getElementById('p-sizex').oninput = (e) => {
         let val = parseFloat(e.target.value) || 1;
-        obj.scale.set(val, val, val); // Scaler logic transformation pipeline
+        obj.scale.set(val, val, val);
     };
     document.getElementById('p-trans').oninput = (e) => {
         let val = parseFloat(e.target.value) || 0;
@@ -224,7 +252,6 @@ function loadProperties(obj) {
         }
     };
 
-    // Update layout states Anchor tracking flag status toggle indicator display text
     const anchorBtn = document.getElementById('btn-anchor');
     if (obj.customProperties?.anchored) {
         anchorBtn.innerText = "⚓ Anchor: ON";
@@ -235,9 +262,8 @@ function loadProperties(obj) {
     }
 }
 
-// --- 7. TOOLBAR ACTIONS CONTROLLERS INTERACTIVE ROUTINES ---
+// --- 7. TOOLBAR ACTIONS CONTROLLERS ROUTINES ---
 function setupToolbarActions() {
-    // Move, Rotate, Scale transformations switches
     const tools = {
         'tool-select': 'select',
         'tool-move': 'translate',
@@ -260,7 +286,6 @@ function setupToolbarActions() {
         };
     });
 
-    // Anchor Toggle Action logic
     document.getElementById('btn-anchor').onclick = () => {
         if (!selectedObject) return;
         if (!selectedObject.customProperties) selectedObject.customProperties = {};
@@ -268,7 +293,6 @@ function setupToolbarActions() {
         loadProperties(selectedObject);
     };
 
-    // Creation Inserters pipelines mapping bindings
     document.getElementById('btn-insert-part').onclick = () => {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(2,2,2), new THREE.MeshStandardMaterial({color: 0x3498db}));
         mesh.position.set(0, 1.2, 0);
@@ -286,7 +310,7 @@ function setupToolbarActions() {
     };
 
     document.getElementById('btn-insert-gui').onclick = () => {
-        const mockGUINode = { name: `ScreenGui_${engineGameData.GUI.length+1}`, isGUI: true, text: "Hello World UI" };
+        const mockGUINode = { name: `ScreenGui_${engineGameData.GUI.length+1}`, isGUI: true, text: "Sample Run HUD Text UI Label" };
         engineGameData.GUI.push(mockGUINode);
         selectObject(mockGUINode);
     };
@@ -305,18 +329,17 @@ function setupToolbarActions() {
         selectObject(rig);
     };
 
-    // Playtest Runtime System Simulation Simulation
     document.getElementById('btn-playtest').onclick = (e) => {
         isPlaytesting = !isPlaytesting;
         if(isPlaytesting) {
             e.target.innerText = "⏹️ Stop Playtest";
             e.target.classList.replace('success', 'btn-danger');
-            // Trigger UI layer engine renders mapping elements
+            
             const guiArea = document.getElementById('starter-gui-container');
             guiArea.innerHTML = '';
             engineGameData.GUI.forEach(ui => {
                 const label = document.createElement('div');
-                label.style.cssText = "position:absolute; top:20px; left:20px; background:rgba(0,0,0,0.7); padding:10px; color:#fff; pointer-events:auto; border-radius:4px;";
+                label.style.cssText = "position:absolute; top:20px; left:20px; background:rgba(0,0,0,0.8); padding:12px; color:#5cd65c; font-weight:bold; border-radius:4px; border:1px solid #333;";
                 label.innerText = ui.text || ui.name;
                 guiArea.appendChild(label);
             });
@@ -327,7 +350,7 @@ function setupToolbarActions() {
         }
     };
 
-    // --- 8. FILE COMPILATION COMPUTER SAVER EXPORTER PIPE ---
+    // --- FILE COMPILATION COMPUTER SAVER ---
     document.getElementById('btn-save').onclick = () => {
         let exportData = {};
         for (let key in engineGameData) {
@@ -341,27 +364,26 @@ function setupToolbarActions() {
             }));
         }
 
-        // Generate JSON structural format blob payload downloading routine
         const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: "application/json"});
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `${exportData.Game[0]?.name || "MyWebGame"}.json`;
+        link.download = `${exportData.Game[0]?.name || "MyStudioGame"}.json`;
         link.click();
     };
 }
 
-// --- 9. PRINCIPAL ANIMATION SCHEDULER ENGINE TICK ---
+// --- 8. PRINCIPAL ANIMATION ENGINE TICK LOOP ---
 function animateEngineLoop() {
     requestAnimationFrame(animateEngineLoop);
     
     if(orbitControls) orbitControls.update();
 
-    // Physics Engine mock fall iteration loops inside playtest
+    // Simulation Gravity Physics checks active
     if (isPlaytesting) {
         engineGameData.Game.forEach(obj => {
             if (obj.position && obj.customProperties && !obj.customProperties.anchored) {
                 if (obj.position.y > 1) {
-                    obj.position.y -= 0.08; // Simulate gravity physics dropping down onto floor
+                    obj.position.y -= 0.08; // Falls down until boundary hit
                 }
             }
         });
@@ -371,3 +393,13 @@ function animateEngineLoop() {
         renderer.render(scene, camera);
     }
 }
+
+// Global hook adjustments responsive window resize handlers
+window.addEventListener('resize', () => {
+    if(camera && renderer) {
+        const viewport = document.getElementById('viewport');
+        camera.aspect = viewport.clientWidth / viewport.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+    }
+});
