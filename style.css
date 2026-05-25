@@ -13,7 +13,7 @@ body, html {
     color: #f5f5f5;
 }
 
-/* HUB SCREEN STYLING */
+/* HUB SCREEN */
 #hub-screen {
     width: 100%;
     height: 100%;
@@ -21,15 +21,15 @@ body, html {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: radial-gradient(circle at center, #22252a 0%, #111315 100%);
+    background: radial-gradient(circle at center, #2e1515 0%, #110808 100%);
 }
 .hub-header { text-align: center; margin-bottom: 40px; }
-.hub-header h1 { font-size: 32px; color: #fff; margin-bottom: 10px; }
-.hub-header p { color: #888; }
+.hub-header h1 { font-size: 36px; color: #ff5500; text-shadow: 0 0 10px rgba(255,85,0,0.4); margin-bottom: 10px; }
+.hub-header p { color: #aaa; }
 .templates-grid { display: flex; gap: 24px; margin-top: 20px; }
 .template-card {
-    background-color: #1e2227;
-    border: 1px solid #323842;
+    background-color: #1e1212;
+    border: 1px solid #422222;
     border-radius: 8px;
     padding: 24px;
     width: 260px;
@@ -37,102 +37,56 @@ body, html {
     cursor: pointer;
     transition: transform 0.2s, border-color 0.2s;
 }
-.template-card:hover {
-    transform: translateY(-5px);
-    border-color: #007acc;
-}
+.template-card:hover { transform: translateY(-5px); border-color: #ff5500; }
 .template-icon { font-size: 48px; margin-bottom: 15px; }
 
-/* STUDIO INTERFACE STYLING */
-#studio-screen {
-    display: flex;
-    flex-direction: column;
-    width: 100vw;
-    height: 100vh;
-}
-
-#top-toolbar {
-    height: 50px;
-    background-color: #252526;
-    border-bottom: 1px solid #3c3c3c;
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
-    gap: 8px;
-    z-index: 10;
-}
+/* STUDIO INTERFACE */
+#studio-screen { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
+#top-toolbar { height: 50px; background-color: #252526; border-bottom: 1px solid #3c3c3c; display: flex; align-items: center; padding: 0 12px; gap: 8px; z-index: 10; }
 .toolbar-group { display: flex; gap: 4px; }
 .divider { width: 1px; height: 24px; background-color: #444; margin: 0 4px; }
-.tool-btn {
-    background-color: #2d2d2d;
-    color: #ccc;
-    border: 1px solid #444;
-    padding: 6px 12px;
-    font-size: 12px;
-    border-radius: 3px;
-    cursor: pointer;
-}
+.tool-btn { background-color: #2d2d2d; color: #ccc; border: 1px solid #444; padding: 6px 12px; font-size: 12px; border-radius: 3px; cursor: pointer; }
 .tool-btn:hover { background-color: #3e3e42; color: #fff; }
-.tool-btn.active-tool { background-color: #007acc; color: white; border-color: #0098ff; }
+.tool-btn.active-tool { background-color: #ff5500; color: white; border-color: #ff7733; }
 .tool-btn.success { background-color: #107c41; color: white; }
 .tool-btn.success:hover { background-color: #14924f; }
+.wasd-indicator { margin-left: auto; font-size: 11px; color: #888; background: #1a1a1a; padding: 4px 8px; border-radius: 4px; border: 1px solid #333; }
 
-#main-container {
-    display: flex;
-    flex: 1;
-    width: 100%;
-    height: calc(100% - 50px);
-}
-
-#viewport-wrapper {
-    flex: 1;
-    height: 100%;
-    position: relative;
-    background-color: #1e1e1e;
-}
+#main-container { display: flex; flex: 1; width: 100%; height: calc(100% - 50px); }
+#viewport-wrapper { flex: 1; height: 100%; position: relative; background-color: #1e1e1e; }
 #viewport { width: 100%; height: 100%; }
 
-/* SCREEN OVERLAY GUI CONTAINER (Fix: Added click-through safety) */
-#starter-gui-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none; /* Allows mouse clicks to pass straight into the 3D canvas */
-    z-index: 5;
-}
-#starter-gui-container * {
-    pointer-events: auto; /* Restores clicking capability on buttons inside UI container */
-}
+/* GAME CANVAS ENGINE RUNTIME GUI CONTAINERS */
+#starter-gui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+.runtime-ui-text { position: absolute; background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 4px; color: white; font-weight: bold; border: 1px solid #444; }
+.runtime-ui-image { position: absolute; background: linear-gradient(45deg, #ff5500, #ffaa00); border-radius: 4px; border: 2px solid white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: white;}
+.runtime-ui-button { position: absolute; background: #007acc; border: 1px solid #0098ff; padding: 8px 16px; border-radius: 4px; color: white; font-weight: bold; cursor: pointer; }
 
-#right-sidebar {
-    width: 340px;
-    height: 100%;
-    background-color: #252526;
-    border-left: 1px solid #3c3c3c;
-    display: flex;
-    flex-direction: column;
-}
-.sidebar-section {
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    border-bottom: 1px solid #3c3c3c;
-}
+#right-sidebar { width: 340px; height: 100%; background-color: #252526; border-left: 1px solid #3c3c3c; display: flex; flex-direction: column; }
+.sidebar-section { padding: 10px; display: flex; flex-direction: column; border-bottom: 1px solid #3c3c3c; }
 .half-height { height: 50%; overflow-y: auto; }
 h3 { font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 6px; }
 
-/* EXPLORER HIERARCHY TREE VIEW UI */
-.tree-view { background-color: #1e1e1e; border: 1px solid #333; border-radius: 3px; flex: 1; overflow-y: auto; padding: 4px; }
-.folder-node { font-weight: bold; color: #dcb67a; margin-top: 4px; cursor: default; font-size: 13px; }
+/* EXPLORER HIERARCHY TREE VIEW */
+.tree-view { background-color: #1e1e1e; border: 1px solid #333; border-radius: 3px; flex: 1; overflow-y: auto; padding: 4px; user-select: none; }
+.folder-node { font-weight: bold; color: #ffaa00; margin-top: 6px; cursor: default; font-size: 13px; }
 .child-list { padding-left: 14px; margin-bottom: 4px; }
-.tree-item { padding: 4px 6px; cursor: pointer; font-size: 12px; border-radius: 2px; color: #ccc; }
+.tree-item { padding: 4px 6px; cursor: pointer; font-size: 12px; border-radius: 2px; color: #ccc; display: flex; justify-content: space-between; }
 .tree-item:hover { background-color: #2a2d2e; }
-.tree-item.selected { background-color: #094771; color: #fff; }
+.tree-item.selected { background-color: #7a2a00; color: #fff; }
 
 /* PROPERTIES EDITOR LAYOUT GRID */
 .property-row { display: flex; align-items: center; margin-bottom: 6px; font-size: 12px; }
 .property-row label { width: 100px; color: #aaa; }
 .property-row input { flex: 1; background-color: #1e1e1e; border: 1px solid #444; color: #fff; padding: 4px; border-radius: 2px; }
 .placeholder-text { color: #555; text-align: center; font-style: italic; font-size: 12px; margin-top: 20px; }
+
+/* POPUP MODALS POPUPS DESIGN */
+#modal-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: #2d2d30; width: 500px; padding: 20px; border-radius: 6px; border: 1px solid #555; display: flex; flex-direction: column; }
+.modal-header { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+.modal-header button { background: none; border: none; color: #aaa; font-size: 16px; cursor: pointer; }
+#modal-code-input { width: 100%; height: 260px; background: #1e1e1e; color: #85c46c; font-family: monospace; padding: 10px; border: 1px solid #444; resize: none; border-radius: 4px; }
+.gui-options-grid { display: flex; gap: 10px; }
+.gui-options-grid button { flex: 1; padding: 15px; font-weight: bold; background: #3e3e42; color: white; border: 1px solid #555; border-radius: 4px; cursor: pointer; }
+.gui-options-grid button:hover { background: #007acc; }
