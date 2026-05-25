@@ -92,14 +92,18 @@ body, html {
 }
 #viewport { width: 100%; height: 100%; }
 
-/* GAME PLAYER HUD ENGINE RUNTIME LAYER */
+/* SCREEN OVERLAY GUI CONTAINER (Fix: Added click-through safety) */
 #starter-gui-container {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* Let clicks pass back to 3D engine unless UI active */
+    pointer-events: none; /* Allows mouse clicks to pass straight into the 3D canvas */
+    z-index: 5;
+}
+#starter-gui-container * {
+    pointer-events: auto; /* Restores clicking capability on buttons inside UI container */
 }
 
 #right-sidebar {
