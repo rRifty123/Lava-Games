@@ -2,145 +2,133 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
 }
 
 body, html {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #1a1a1a;
-    color: #e0e0e0;
+    background-color: #121212;
+    color: #f5f5f5;
 }
 
-#editor-container {
+/* HUB SCREEN STYLING */
+#hub-screen {
+    width: 100%;
+    height: 100%;
+    padding: 50px;
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: radial-gradient(circle at center, #22252a 0%, #111315 100%);
+}
+.hub-header { text-align: center; margin-bottom: 40px; }
+.hub-header h1 { font-size: 32px; color: #fff; margin-bottom: 10px; }
+.hub-header p { color: #888; }
+.templates-grid { display: flex; gap: 24px; margin-top: 20px; }
+.template-card {
+    background-color: #1e2227;
+    border: 1px solid #323842;
+    border-radius: 8px;
+    padding: 24px;
+    width: 260px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+}
+.template-card:hover {
+    transform: translateY(-5px);
+    border-color: #007acc;
+}
+.template-icon { font-size: 48px; margin-bottom: 15px; }
+
+/* STUDIO INTERFACE STYLING */
+#studio-screen {
+    display: flex;
+    flex-direction: column;
     width: 100vw;
     height: 100vh;
 }
 
-#sidebar {
-    width: 320px;
-    height: 100%;
+#top-toolbar {
+    height: 50px;
     background-color: #252526;
-    border-right: 2px solid #3c3c3c;
-    display: flex;
-    flex-direction: column;
-}
-
-.panel-section {
-    padding: 12px;
     border-bottom: 1px solid #3c3c3c;
     display: flex;
-    flex-direction: column;
-}
-
-.flex-grow {
-    flex-grow: 1;
-    overflow-y: auto;
-    max-height: 30%;
-}
-
-h3 {
-    font-size: 12px;
-    text-transform: uppercase;
-    color: #aaaaaa;
-    margin-bottom: 8px;
-    letter-spacing: 0.5px;
-}
-
-.btn-group {
-    display: flex;
-    gap: 6px;
-}
-
-button {
-    flex: 1;
-    background-color: #3e3e42;
-    color: white;
-    border: 1px solid #555;
-    padding: 6px 12px;
-    cursor: pointer;
-    font-size: 13px;
-    border-radius: 3px;
-}
-
-button:hover {
-    background-color: #505054;
-}
-
-button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.btn-success { background-color: #0e6328; border-color: #137e34; }
-.btn-success:hover { background-color: #137e34; }
-.btn-danger { background-color: #a61c1c; border-color: #cc2424; }
-.btn-danger:hover { background-color: #cc2424; }
-
-.tree-view {
-    background-color: #1e1e1e;
-    border: 1px solid #3c3c3c;
-    border-radius: 3px;
-    height: 100%;
-    overflow-y: auto;
-}
-
-.tree-item {
-    padding: 6px 10px;
-    cursor: pointer;
-    font-size: 13px;
-    border-bottom: 1px solid #2d2d2d;
-}
-
-.tree-item:hover { background-color: #2a2d2e; }
-.tree-item.selected { background-color: #094771; color: white; }
-
-.property-row {
-    display: flex;
     align-items: center;
-    margin-bottom: 6px;
-    font-size: 13px;
+    padding: 0 12px;
+    gap: 8px;
+    z-index: 10;
 }
-
-.property-row label {
-    width: 80px;
-    color: #bbb;
-}
-
-.property-row input {
-    flex: 1;
-    background-color: #1e1e1e;
-    border: 1px solid #3c3c3c;
-    color: white;
-    padding: 4px;
-    border-radius: 2px;
-}
-
-#script-input {
-    width: 100%;
-    height: 140px;
-    background-color: #1e1e1e;
-    color: #85c46c;
-    font-family: 'Courier New', Courier, monospace;
+.toolbar-group { display: flex; gap: 4px; }
+.divider { width: 1px; height: 24px; background-color: #444; margin: 0 4px; }
+.tool-btn {
+    background-color: #2d2d2d;
+    color: #ccc;
+    border: 1px solid #444;
+    padding: 6px 12px;
     font-size: 12px;
-    border: 1px solid #3c3c3c;
-    padding: 6px;
-    resize: none;
     border-radius: 3px;
+    cursor: pointer;
+}
+.tool-btn:hover { background-color: #3e3e42; color: #fff; }
+.tool-btn.active-tool { background-color: #007acc; color: white; border-color: #0098ff; }
+.tool-btn.success { background-color: #107c41; color: white; }
+.tool-btn.success:hover { background-color: #14924f; }
+
+#main-container {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    height: calc(100% - 50px);
 }
 
-#viewport {
-    flex-grow: 1;
+#viewport-wrapper {
+    flex: 1;
     height: 100%;
     position: relative;
+    background-color: #1e1e1e;
+}
+#viewport { width: 100%; height: 100%; }
+
+/* GAME PLAYER HUD ENGINE RUNTIME LAYER */
+#starter-gui-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks pass back to 3D engine unless UI active */
 }
 
-.placeholder-text {
-    color: #777;
-    font-style: italic;
-    font-size: 13px;
-    text-align: center;
-    margin-top: 10px;
+#right-sidebar {
+    width: 340px;
+    height: 100%;
+    background-color: #252526;
+    border-left: 1px solid #3c3c3c;
+    display: flex;
+    flex-direction: column;
 }
+.sidebar-section {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid #3c3c3c;
+}
+.half-height { height: 50%; overflow-y: auto; }
+h3 { font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 6px; }
+
+/* EXPLORER HIERARCHY TREE VIEW UI */
+.tree-view { background-color: #1e1e1e; border: 1px solid #333; border-radius: 3px; flex: 1; overflow-y: auto; padding: 4px; }
+.folder-node { font-weight: bold; color: #dcb67a; margin-top: 4px; cursor: default; font-size: 13px; }
+.child-list { padding-left: 14px; margin-bottom: 4px; }
+.tree-item { padding: 4px 6px; cursor: pointer; font-size: 12px; border-radius: 2px; color: #ccc; }
+.tree-item:hover { background-color: #2a2d2e; }
+.tree-item.selected { background-color: #094771; color: #fff; }
+
+/* PROPERTIES EDITOR LAYOUT GRID */
+.property-row { display: flex; align-items: center; margin-bottom: 6px; font-size: 12px; }
+.property-row label { width: 100px; color: #aaa; }
+.property-row input { flex: 1; background-color: #1e1e1e; border: 1px solid #444; color: #fff; padding: 4px; border-radius: 2px; }
+.placeholder-text { color: #555; text-align: center; font-style: italic; font-size: 12px; margin-top: 20px; }
