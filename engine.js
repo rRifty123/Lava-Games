@@ -4,6 +4,10 @@ let selectedObject = null;
 let currentToolMode = 'select'; // select, move, rotate, scale
 let isPlaytesting = false;
 
+// Preserved workspace camera coordinate transform snapshots before playtest POV overrides
+let savedStudioCameraPos = new THREE.Vector3();
+let savedStudioCameraTarget = new THREE.Vector3();
+
 // WASD Navigation Engine Tracker State
 let keysPressed = {};
 
@@ -79,6 +83,8 @@ function initEngineCore() {
     const mouse = new THREE.Vector2();
 
     renderer.domElement.addEventListener('pointerdown', (event) => {
+        if(isPlaytesting) return; // Prevent raw selection transformations inside active live gameplay POV
+        
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -89,7 +95,7 @@ function initEngineCore() {
         if (intersects.length > 0) {
             let hitObject = intersects[0].object;
             while (hitObject.parent && hitObject.parent !== scene && hitObject.parent.name !== "") {
-                if (hitObject.parent.name.includes("VillageHouse") || hitObject.parent.name.includes("CharacterDummy") || hitObject.parent.name.includes("PlayerAsset")) {
+                if (hitObject.parent.name.includes("VillageHouse") || hitObject.parent.name.includes("CharacterDummy") || hitObject.parent.name.includes("PlayerCharacterInstance")) {
                     hitObject = hitObject.parent;
                     break;
                 }
@@ -113,7 +119,7 @@ function loadTemplate(type) {
     const mat = new THREE.MeshStandardMaterial({ color: type === 'blank' ? 0x2e3033 : 0x345e37, roughness: 0.9 });
     const floor = new THREE.Mesh(geo, mat);
     floor.name = type === 'blank' ? "Baseplate" : "GrassField";
-    floor.customProperties = { transparency: 0, anchored: true, scriptText: "" };
+    floor.customProperties = { transparency: 0, anchored: true };
     scene.add(floor);
     engineGameData.Game.push(floor);
 
@@ -160,15 +166,8 @@ function buildExplorerTree() {
             if(item.isPlayerCharacter) icon = "🎮 ";
             
             itemDiv.innerText = `${icon}${item.name}`;
-            
-            // Single Click Selection
             itemDiv.onclick = (e) => { e.stopPropagation(); selectObject(item); };
-            
-            // Double Click Sub-Editors / Rename Pipeline Triggers
-            itemDiv.ondblclick = (e) => {
-                e.stopPropagation();
-                triggerDoubleClickedAction(item);
-            };
+            itemDiv.ondblclick = (e) => { e.stopPropagation(); triggerDoubleClickedAction(item); };
 
             childListContainer.appendChild(itemDiv);
         });
@@ -199,11 +198,10 @@ function selectObject(obj) {
 
 // --- 6. RENAME AND SUB-EDITOR DOUBLE CLICK ROUTINES ---
 function triggerDoubleClickedAction(item) {
-    // 1. Rename prompt condition checks
     const choice = confirm(`Would you like to Edit/Configure "${item.name}"?\n(Click Cancel if you want to Rename it instead)`);
     
     if (!choice) {
-        const newName = prompt("Enter new resource instance name:", item.name);
+        const newName = prompt("Enter new resource name:", item.name);
         if (newName && newName.trim() !== "") {
             item.name = newName.trim();
             buildExplorerTree();
@@ -212,7 +210,6 @@ function triggerDoubleClickedAction(item) {
         return;
     }
 
-    // 2. Open specific tool panels based on type
     document.getElementById('modal-container').style.display = 'flex';
     if(item.isScript) {
         document.getElementById('script-modal').style.display = 'flex';
@@ -240,7 +237,7 @@ function saveScriptContent() {
 
 function setGUIType(type) {
     if(selectedObject && selectedObject.isGUI) {
-        selectedObject.guiType = type; // Text, Image, or Button
+        selectedObject.guiType = type;
         selectedObject.name = `${type}GuiInstance`;
         buildExplorerTree();
         loadProperties(selectedObject);
@@ -252,7 +249,6 @@ function setGUIType(type) {
 function loadProperties(obj) {
     const panel = document.getElementById('properties-panel');
     
-    // UI Layout Configuration Checks
     if(obj.isGUI) {
         panel.innerHTML = `
             <div class="property-row"><label>Name</label><input type="text" id="p-name" value="${obj.name}"></div>
@@ -341,7 +337,6 @@ function setupToolbarActions() {
         scene.add(rig); engineGameData.Game.push(rig); selectObject(rig);
     };
 
-    // ADD PLAYABLE PLAYER CHARACTER ENGINE PIPELINE
     document.getElementById('btn-insert-player').onclick = () => {
         const pGroup = new THREE.Group(); pGroup.name = "PlayerCharacterInstance";
         pGroup.isPlayerCharacter = true;
@@ -355,15 +350,30 @@ function setupToolbarActions() {
         pGroup.customProperties = { transparency: 0, anchored: false };
         
         scene.add(pGroup);
-        engineGameData.Players.push(pGroup); // Hooks up folder
-        engineGameData.Game.push(pGroup);    // Hooks context viewport raycasts
+        engineGameData.Players.push(pGroup);
+        engineGameData.Game.push(pGroup);
         selectObject(pGroup);
     };
 
+    // --- PLAYTEST SWITCH WITH POV TRANSITION LAYER ACTION ---
     document.getElementById('btn-playtest').onclick = (e) => {
         isPlaytesting = !isPlaytesting;
         if(isPlaytesting) {
             e.target.innerText = "⏹️ Stop Playtest"; e.target.classList.replace('success', 'btn-danger');
+            transformControls.detach(); // Safety off click handles during live gameplay simulation
+
+            // Save old viewport camera parameters so we can safely teleport back when done
+            savedStudioCameraPos.copy(camera.position);
+            savedStudioCameraTarget.copy(orbitControls.target);
+
+            // 🎥 TELEPORT CAMERA TO PLAYER CHARACTER POINT OF VIEW HEAD POSITION IF FOUND
+            const playerAsset = engineGameData.Players[0];
+            if (playerAsset) {
+                camera.position.set(playerAsset.position.x, playerAsset.position.y + 2.65, playerAsset.position.z);
+                orbitControls.target.set(playerAsset.position.x, playerAsset.position.y + 2.65, playerAsset.position.z - 5);
+            } else {
+                alert("Notice: No Active Player character found inside Workspace. Staying in Free Camera mode.");
+            }
             
             const guiArea = document.getElementById('starter-gui-container');
             guiArea.innerHTML = '';
@@ -378,68 +388,137 @@ function setupToolbarActions() {
                     el = document.createElement('button'); el.className = "runtime-ui-button"; el.innerText = "Click Me!";
                     el.onclick = () => alert("Runtime GUI Button Clicked!");
                 }
-                el.style.top = `${ui.customProperties.top}px`;
-                el.style.left = `${ui.customProperties.left}px`;
+                el.style.top = `${ui.customProperties.top}px`; el.style.left = `${ui.customProperties.left}px`;
                 guiArea.appendChild(el);
             });
         } else {
             e.target.innerText = "▶️ Playtest"; e.target.classList.replace('btn-danger', 'success');
             document.getElementById('starter-gui-container').innerHTML = '';
+            
+            // 🎥 TETHER BACK TO OLD FREE CAM SNAPSHOT LOCATION OVER VIEWPORT
+            camera.position.copy(savedStudioCameraPos);
+            orbitControls.target.copy(savedStudioCameraTarget);
         }
     };
 
+    // --- 9. COMPILE & DOWNLOAD STANDALONE APPLICATION RUNTIME ENGINE ---
     document.getElementById('btn-save').onclick = () => {
-        let exportData = {};
+        let serializedJSON = {};
         for (let key in engineGameData) {
-            exportData[key] = engineGameData[key].map(obj => ({
+            serializedJSON[key] = engineGameData[key].map(obj => ({
                 name: obj.name, isScript: obj.isScript || false, isGUI: obj.isGUI || false, isPlayerCharacter: obj.isPlayerCharacter || false, guiType: obj.guiType || null,
                 position: obj.position ? {x: obj.position.x, y: obj.position.y, z: obj.position.z} : null,
                 scale: obj.scale ? {x: obj.scale.x, y: obj.scale.y, z: obj.scale.z} : null,
                 customProperties: obj.customProperties || {}
             }));
         }
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: "application/json"});
+
+        // We compile a self-executing HTML wrapper template payload that runs completely offline as a native app!
+        const appPayload = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Lava Games Game Application</title>
+    <style>
+        body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
+        #canvas-view { width:100%; height:100%; }
+        #game-gui { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; font-family:sans-serif; }
+        .ui-txt { position:absolute; background:rgba(0,0,0,0.7); padding:8px 16px; border-radius:4px; color:white; font-weight:bold; }
+        .ui-img { position:absolute; background:linear-gradient(45deg, #ff5500, #ffaa00); border-radius:4px; display:flex; align-items:center; justify-content:center; color:white; font-size:12px;}
+        .ui-btn { position:absolute; background:#007acc; padding:8px 16px; border-radius:4px; color:white; font-weight:bold; pointer-events:auto; cursor:pointer; border:none; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
+</head>
+<body>
+    <div id="canvas-view"></div>
+    <div id="game-gui"></div>
+    <script>
+        const data = ${JSON.stringify(serializedJSON)};
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(0x181818);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({antialiasing:true});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-view').appendChild(renderer.domElement);
+        
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(10,30,10); scene.add(sun);
+
+        let playerPos = {x:0, y:2.65, z:4};
+        
+        // Unpack World Objects
+        data.Game.forEach(item => {
+            if(item.isScript || item.isGUI) return;
+            let geo = new THREE.BoxGeometry(2,2,2);
+            if(item.name.includes("Baseplate") || item.name.includes("GrassField")) geo = new THREE.BoxGeometry(50, 0.5, 50);
+            let mat = new THREE.MeshStandardMaterial({color: item.isPlayerCharacter ? 0x3c6382 : 0x3498db});
+            if(item.name.includes("Baseplate")) mat.color.setHex(0x2e3033);
+            if(item.name.includes("GrassField")) mat.color.setHex(0x345e37);
+            
+            const mesh = new THREE.Mesh(geo, mat);
+            if(item.position) mesh.position.set(item.position.x, item.position.y, item.position.z);
+            if(item.scale) mesh.scale.set(item.scale.x, item.scale.y, item.scale.z);
+            scene.add(mesh);
+            if(item.isPlayerCharacter && item.position) { playerPos = {x: item.position.x, y: item.position.y + 2.65, z: item.position.z}; }
+        });
+
+        // Set Camera inside Player head POV position
+        camera.position.set(playerPos.x, playerPos.y, playerPos.z);
+        camera.lookAt(playerPos.x, playerPos.y, playerPos.z - 10);
+
+        // Render Loaded GUIs
+        const guiBox = document.getElementById('game-gui');
+        data.GUI.forEach(ui => {
+            if(!ui.guiType) return;
+            const el = document.createElement(ui.guiType === 'Button' ? 'button' : 'div');
+            el.className = ui.guiType === 'Button' ? 'ui-btn' : (ui.guiType === 'Text' ? 'ui-txt' : 'ui-img');
+            el.innerText = ui.guiType === 'Button' ? 'Click Me' : (ui.guiType === 'Text' ? 'Live Game UI Text' : 'IMAGE');
+            if(ui.guiType === 'Image') { el.style.width='100px'; el.style.height='100px'; }
+            el.style.top = ui.customProperties.top + 'px'; el.style.left = ui.customProperties.left + 'px';
+            if(ui.guiType === 'Button') el.onclick = () => alert("App Action Confirmed!");
+            guiBox.appendChild(el);
+        });
+
+        function playLoop() { requestAnimationFrame(playLoop); renderer.render(scene, camera); }
+        playLoop();
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+    <\/script>
+</body>
+</html>`;
+
+        const blob = new Blob([appPayload], {type: "text/html"});
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob); link.download = "LavaStudioProject.json"; link.click();
+        link.href = URL.createObjectURL(blob);
+        link.download = `LavaGamesApp.html`; // Standalone double-clickable app file executable anywhere!
+        link.click();
     };
 }
 
-// --- 9. PRINCIPAL ANIMATION ENGINE TICK LOOP ---
+// --- 10. PRINCIPAL ANIMATION ENGINE TICK LOOP ---
 function animateEngineLoop() {
     requestAnimationFrame(animateEngineLoop);
     
-    // --- ACCELERATED WASD RUNTIME CAMERA ENGINE ---
-    const moveSpeed = 0.4;
-    const directionVector = new THREE.Vector3();
-    camera.getWorldDirection(directionVector);
-    
-    // Flatten vector so flying controls don't alter vertical level accidentally unless intended
-    const forwardX = directionVector.x;
-    const forwardZ = directionVector.z;
+    // WASD Camera Free-Fly Movement Logic (Disabled when snapped to Player Character POV)
+    if(!isPlaytesting) {
+        const moveSpeed = 0.4;
+        const directionVector = new THREE.Vector3();
+        camera.getWorldDirection(directionVector);
+        
+        const forwardX = directionVector.x;
+        const forwardZ = directionVector.z;
 
-    if (keysPressed['w']) { // Forward
-        camera.position.x += forwardX * moveSpeed; camera.position.z += forwardZ * moveSpeed;
-        orbitControls.target.x += forwardX * moveSpeed; orbitControls.target.z += forwardZ * moveSpeed;
-    }
-    if (keysPressed['s']) { // Backward
-        camera.position.x -= forwardX * moveSpeed; camera.position.z -= forwardZ * moveSpeed;
-        orbitControls.target.x -= forwardX * moveSpeed; orbitControls.target.z -= forwardZ * moveSpeed;
-    }
-    if (keysPressed['a']) { // Left strafe
-        camera.position.x += forwardZ * moveSpeed; camera.position.z -= forwardX * moveSpeed;
-        orbitControls.target.x += forwardZ * moveSpeed; orbitControls.target.z -= forwardX * moveSpeed;
-    }
-    if (keysPressed['d']) { // Right strafe
-        camera.position.x -= forwardZ * moveSpeed; camera.position.z += forwardX * moveSpeed;
-        orbitControls.target.x -= forwardZ * moveSpeed; orbitControls.target.z += forwardX * moveSpeed;
+        if (keysPressed['w']) { camera.position.x += forwardX * moveSpeed; camera.position.z += forwardZ * moveSpeed; orbitControls.target.x += forwardX * moveSpeed; orbitControls.target.z += forwardZ * moveSpeed; }
+        if (keysPressed['s']) { camera.position.x -= forwardX * moveSpeed; camera.position.z -= forwardZ * moveSpeed; orbitControls.target.x -= forwardX * moveSpeed; orbitControls.target.z -= forwardZ * moveSpeed; }
+        if (keysPressed['a']) { camera.position.x += forwardZ * moveSpeed; camera.position.z -= forwardX * moveSpeed; orbitControls.target.x += forwardZ * moveSpeed; orbitControls.target.z -= forwardX * moveSpeed; }
+        if (keysPressed['d']) { camera.position.x -= forwardZ * moveSpeed; camera.position.z += forwardX * moveSpeed; orbitControls.target.x -= forwardZ * moveSpeed; orbitControls.target.z += forwardX * moveSpeed; }
     }
 
     if(orbitControls) orbitControls.update();
 
+    // Gravity Physics Engine loop Simulation
     if (isPlaytesting) {
         engineGameData.Game.forEach(obj => {
             if (obj.position && obj.customProperties && !obj.customProperties.anchored) {
-                if (obj.position.y > 1) obj.position.y -= 0.08;
+                // Drop items until they reach ground level
+                if (obj.position.y > 1 && !obj.isPlayerCharacter) obj.position.y -= 0.08;
             }
         });
     }
